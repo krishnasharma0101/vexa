@@ -1,0 +1,8 @@
+gpiozero
+lgpio
+pigpio
+numpy
+opencv-python-headless
+ultralytics
+picamera2
+pyyaml

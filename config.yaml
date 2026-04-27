@@ -1,0 +1,116 @@
+# ============================================================
+# Robotic Arm Pick-and-Place — Master Configuration
+# ============================================================
+
+# ----------------------------------------------------------
+# Servo joints (all driven via RPi GPIO software PWM)
+# ----------------------------------------------------------
+servos:
+  base:
+    gpio_pin: 17          # BCM numbering
+    min_pulse_ms: 0.5     # MG995 typical
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 60             # degrees per second
+
+  shoulder:
+    gpio_pin: 27
+    min_pulse_ms: 0.5
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 45
+
+  elbow:
+    gpio_pin: 22
+    min_pulse_ms: 0.5
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 45
+
+  wrist_pitch:
+    gpio_pin: 23
+    min_pulse_ms: 0.5
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 60
+
+  wrist_roll:
+    gpio_pin: 24
+    min_pulse_ms: 0.5     # MG90S
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 90
+
+  gripper:
+    gpio_pin: 25
+    min_pulse_ms: 0.5     # MG996R
+    max_pulse_ms: 2.5
+    min_angle: 0
+    max_angle: 180
+    open_angle: 150       # gripper fully open
+    close_angle: 30       # gripper fully closed
+    home_angle: 150
+    speed: 120
+
+# ----------------------------------------------------------
+# Arm link lengths (mm) — PLACEHOLDER VALUES
+# Measure your arm and update these!
+# ----------------------------------------------------------
+arm:
+  base_height: 65         # height from table to shoulder pivot
+  upper_arm: 105          # shoulder pivot to elbow pivot
+  forearm: 100            # elbow pivot to wrist pivot
+  hand: 70                # wrist pivot to gripper tip
+
+# ----------------------------------------------------------
+# Camera (RPi Camera Module via picamera2)
+# ----------------------------------------------------------
+camera:
+  width: 640
+  height: 480
+  format: "RGB888"
+
+# ----------------------------------------------------------
+# Object detection (YOLOv8)
+# ----------------------------------------------------------
+detection:
+  model: "yolov8n.pt"     # auto-downloaded on first run
+  confidence: 0.45
+  target_classes: []      # empty = detect all; or e.g. ["bottle", "cup"]
+
+# ----------------------------------------------------------
+# Vision → world coordinate calibration
+# ----------------------------------------------------------
+calibration:
+  # Homography calibration points (fill in during calibration)
+  # Each entry: [pixel_x, pixel_y, world_x_mm, world_y_mm]
+  points: []
+  table_height_mm: 0      # z of table surface relative to arm base
+
+# ----------------------------------------------------------
+# Pick-and-place behaviour
+# ----------------------------------------------------------
+pick_and_place:
+  approach_height_mm: 80  # hover above object before descending
+  grip_height_mm: 10      # height at which to close gripper
+  lift_height_mm: 120     # height after gripping
+  drop_position:          # world coords (mm) of the drop zone
+    x: -150
+    y: 0
+    z: 80
+  grip_delay_s: 0.5       # pause after closing gripper
+  release_delay_s: 0.3
+  scan_positions:         # base angles to scan for objects
+    - 45
+    - 90
+    - 135
