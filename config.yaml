@@ -6,16 +6,7 @@
 # Servo joints (all driven via RPi GPIO software PWM)
 # ----------------------------------------------------------
 servos:
-  base:
-    gpio_pin: 17          # BCM numbering
-    min_pulse_ms: 0.5     # MG995 typical
-    max_pulse_ms: 2.4
-    min_angle: 0
-    max_angle: 180
-    home_angle: 90
-    speed: 60             # degrees per second
-
-  shoulder:
+  shoulder_left:
     gpio_pin: 27
     min_pulse_ms: 0.5
     max_pulse_ms: 2.4
@@ -23,6 +14,16 @@ servos:
     max_angle: 180
     home_angle: 90
     speed: 45
+
+  shoulder_right:
+    gpio_pin: 17
+    min_pulse_ms: 0.5
+    max_pulse_ms: 2.4
+    min_angle: 0
+    max_angle: 180
+    home_angle: 90
+    speed: 45
+    invert: false         # Set to true if the servo is physically mirrored
 
   elbow:
     gpio_pin: 22
@@ -41,15 +42,6 @@ servos:
     max_angle: 180
     home_angle: 90
     speed: 60
-
-  wrist_roll:
-    gpio_pin: 24
-    min_pulse_ms: 0.5     # MG90S
-    max_pulse_ms: 2.4
-    min_angle: 0
-    max_angle: 180
-    home_angle: 90
-    speed: 90
 
   gripper:
     gpio_pin: 25

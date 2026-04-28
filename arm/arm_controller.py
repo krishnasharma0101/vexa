@@ -73,9 +73,9 @@ class ArmController:
         if self.dry_run:
             return True
 
-        # Move base first, then the arm chain
-        self.servos.set_angle("base", angles["base"])
-        self.servos.set_angle("shoulder", angles["shoulder"])
+        # Move arm chain (no base)
+        self.servos.set_angle("shoulder_left", angles["shoulder"])
+        self.servos.set_angle("shoulder_right", angles["shoulder"])
         self.servos.set_angle("elbow", angles["elbow"])
         self.servos.set_angle("wrist_pitch", angles["wrist_pitch"])
         return True

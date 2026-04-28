@@ -42,27 +42,22 @@ class ArmKinematics:
     def forward(self, angles: Dict[str, float]) -> Tuple[float, float, float]:
         """
         Given joint angles (degrees), return end-effector (x, y, z) in mm.
-
-        Required keys: base, shoulder, elbow, wrist_pitch.
+        Here x is forward distance, y is always 0 (planar arm), z is height.
         """
-        base_rad = math.radians(angles["base"])
         sh_rad = math.radians(angles["shoulder"])
         el_rad = math.radians(angles["elbow"])
         wp_rad = math.radians(angles["wrist_pitch"])
 
         # In the vertical plane (r = horizontal reach, z = height)
-        # shoulder angle: 0° = arm pointing straight up, 90° = horizontal forward
-        # We remap so 90° config-angle = horizontal
-        theta1 = math.pi / 2 - sh_rad   # angle from horizontal
-        theta2 = el_rad - math.pi / 2   # elbow relative to upper arm
-        theta3 = wp_rad - math.pi / 2   # wrist relative to forearm
+        theta1 = math.pi / 2 - sh_rad
+        theta2 = el_rad - math.pi / 2
+        theta3 = wp_rad - math.pi / 2
 
-        # Cumulative angles from horizontal
         a1 = theta1
         a2 = a1 + theta2
         a3 = a2 + theta3
 
-        r = (self.L1 * math.cos(a1)
+        x = (self.L1 * math.cos(a1)
              + self.L2 * math.cos(a2)
              + self.L3 * math.cos(a3))
 
@@ -70,9 +65,8 @@ class ArmKinematics:
              + self.L1 * math.sin(a1)
              + self.L2 * math.sin(a2)
              + self.L3 * math.sin(a3))
-
-        x = r * math.cos(base_rad)
-        y = r * math.sin(base_rad)
+             
+        y = 0.0
 
         return (x, y, z)
 
@@ -87,32 +81,22 @@ class ArmKinematics:
         pitch_deg: float = 0.0,
     ) -> Optional[Dict[str, float]]:
         """
-        Compute joint angles to reach (x, y, z) with the given wrist pitch.
-
-        pitch_deg: desired angle of the gripper from horizontal
-                   (0 = pointing forward, -90 = pointing straight down).
-
-        Returns dict with keys base, shoulder, elbow, wrist_pitch (degrees)
-        or None if the target is unreachable.
+        Compute joint angles to reach (x, y, z).
+        Since this is a planar arm, it can only reach points where y ≈ 0
+        (or it just extends to `x` distance straight ahead regardless of y).
         """
-        # --- Base angle (top-down view) ---
-        base_deg = math.degrees(math.atan2(y, x))
-
-        # --- Work in the vertical plane ---
-        r = math.hypot(x, y)                # horizontal distance
-        z_rel = z - self.base_height        # height relative to shoulder
+        r = x # Ignore y, reach primarily forward
+        
+        z_rel = z - self.base_height
 
         pitch_rad = math.radians(pitch_deg)
 
-        # Wrist position (subtract the hand/gripper link)
         r_w = r - self.L3 * math.cos(pitch_rad)
         z_w = z_rel - self.L3 * math.sin(pitch_rad)
 
-        # 2-link IK for shoulder-elbow to reach (r_w, z_w)
         D_sq = r_w ** 2 + z_w ** 2
         D = math.sqrt(D_sq)
 
-        # Check reachability
         if D > (self.L1 + self.L2) or D < abs(self.L1 - self.L2):
             logger.warning(
                 f"Target ({x:.1f}, {y:.1f}, {z:.1f}) unreachable "
@@ -120,36 +104,30 @@ class ArmKinematics:
             )
             return None
 
-        # Elbow angle (cosine rule) — "elbow-down" solution
         cos_beta = (D_sq - self.L1 ** 2 - self.L2 ** 2) / (2 * self.L1 * self.L2)
         cos_beta = max(-1.0, min(1.0, cos_beta))
-        beta = math.acos(cos_beta)          # 0..π
-        elbow_angle = math.pi - beta        # internal elbow flex
+        beta = math.acos(cos_beta)
+        elbow_angle = math.pi - beta
 
-        # Shoulder angle
         alpha = math.atan2(z_w, r_w)
         gamma = math.atan2(
             self.L2 * math.sin(beta),
             self.L1 + self.L2 * math.cos(beta),
         )
-        shoulder_angle = alpha + gamma      # from horizontal
+        shoulder_angle = alpha + gamma
 
-        # Wrist pitch to achieve desired end-effector pitch
         wrist_angle = pitch_rad - shoulder_angle + elbow_angle
 
-        # Convert to servo-space (0-180 mapping used in config)
         shoulder_deg = 90 - math.degrees(shoulder_angle)
         elbow_deg = 90 + math.degrees(elbow_angle)
         wrist_deg = 90 + math.degrees(wrist_angle)
 
         result = {
-            "base": base_deg,
             "shoulder": shoulder_deg,
             "elbow": elbow_deg,
             "wrist_pitch": wrist_deg,
         }
 
-        # Validate all angles within 0-180 range
         for name, val in result.items():
             if val < 0 or val > 180:
                 logger.warning(

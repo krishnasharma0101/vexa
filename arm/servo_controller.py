@@ -112,12 +112,12 @@ class ServoController:
     Usage::
 
         ctrl = ServoController(config["servos"])
-        ctrl.set_angle("shoulder", 45)
+        ctrl.set_angle("shoulder_left", 45)
         ctrl.go_home()
         ctrl.relax_all()
     """
 
-    JOINT_NAMES = ["base", "shoulder", "elbow", "wrist_pitch", "wrist_roll", "gripper"]
+    JOINT_NAMES = ["shoulder_left", "shoulder_right", "elbow", "wrist_pitch", "gripper"]
 
     def __init__(self, servos_cfg: dict):
         logger.info("Initialising servo controller …")
@@ -125,12 +125,22 @@ class ServoController:
         for name in self.JOINT_NAMES:
             if name in servos_cfg:
                 self.joints[name] = ServoJoint(name, servos_cfg[name])
+        
+        self.invert_map = {}
+        for name in self.JOINT_NAMES:
+            if name in servos_cfg:
+                self.invert_map[name] = servos_cfg[name].get("invert", False)
+
         logger.info(f"Servo controller ready — {len(self.joints)} joints")
 
     # --- single joint -------------------------------------------------------
 
     def set_angle(self, joint: str, angle: float, smooth: bool = True):
-        self.joints[joint].set_angle(angle, smooth)
+        target = angle
+        if self.invert_map.get(joint, False):
+            # invert angle around 90 by default, or just 180-angle
+            target = 180 - angle
+        self.joints[joint].set_angle(target, smooth)
 
     def get_angle(self, joint: str) -> float:
         return self.joints[joint].angle

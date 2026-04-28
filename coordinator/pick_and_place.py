@@ -62,7 +62,6 @@ class PickAndPlaceCoordinator:
         self.state = State.IDLE
         self._target: Optional[Detection] = None
         self._target_world = None
-        self._scan_idx = 0
 
         # Configurable heights/positions
         self.approach_h = self.cfg.get("approach_height_mm", 80)
@@ -70,7 +69,6 @@ class PickAndPlaceCoordinator:
         self.lift_h = self.cfg.get("lift_height_mm", 120)
         self.grip_delay = self.cfg.get("grip_delay_s", 0.5)
         self.release_delay = self.cfg.get("release_delay_s", 0.3)
-        self.scan_positions = self.cfg.get("scan_positions", [45, 90, 135])
 
         drop = self.cfg.get("drop_position", {"x": -150, "y": 0, "z": 80})
         self.drop_pos = (drop["x"], drop["y"], drop["z"])
@@ -85,11 +83,9 @@ class PickAndPlaceCoordinator:
     def step(self) -> State:
         """Execute one step of the state machine. Returns the new state."""
 
-        if self.state == State.IDLE:
-            self._transition(State.SCAN)
-
-        elif self.state == State.SCAN:
-            self._do_scan()
+        if self.state in (State.IDLE, State.SCAN):
+            # No base motor to scan, so just detect directly ahead
+            self._transition(State.DETECT)
 
         elif self.state == State.DETECT:
             self._do_detect()
@@ -121,18 +117,7 @@ class PickAndPlaceCoordinator:
     # State handlers
     # ------------------------------------------------------------------
     def _do_scan(self):
-        """Move base to the next scan position and try to detect."""
-        if self._scan_idx >= len(self.scan_positions):
-            logger.warning("Scanned all positions — no object found")
-            self._scan_idx = 0
-            self._transition(State.ERROR)
-            return
-
-        angle = self.scan_positions[self._scan_idx]
-        logger.info(f"Scanning at base angle {angle}°")
-        self.arm.move_joints({"base": angle})
-        time.sleep(0.6)
-        self._scan_idx += 1
+        """No longer used, jump directly to detect."""
         self._transition(State.DETECT)
 
     def _do_detect(self):
@@ -141,7 +126,8 @@ class PickAndPlaceCoordinator:
         detections = self.detector.detect(frame)
 
         if not detections:
-            logger.info("No objects detected — continuing scan")
+            logger.info("No objects detected in front — returning to scan/idle")
+            time.sleep(1) # delay before retrying
             self._transition(State.SCAN)
             return
 
@@ -164,11 +150,12 @@ class PickAndPlaceCoordinator:
 
         self._target = best
         self._target_world = world
-        self._scan_idx = 0
         logger.info(
             f"Object world position: "
             f"x={world[0]:.1f}  y={world[1]:.1f}  z={world[2]:.1f} mm"
         )
+        if abs(world[1]) > 50:
+            logger.warning("Object is far off-center (y != 0). With no base motor, we may not reach it properly.")
         self._transition(State.APPROACH)
 
     def _do_approach(self):
@@ -236,7 +223,6 @@ class PickAndPlaceCoordinator:
     def run_once(self) -> bool:
         """Run a single pick-and-place cycle. Returns True on success."""
         self.state = State.IDLE
-        self._scan_idx = 0
 
         while self.state not in (State.DONE, State.ERROR):
             self.step()
